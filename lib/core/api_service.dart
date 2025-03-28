@@ -5,7 +5,7 @@ import 'dart:math' as math;
 
 class ApiService {
   // final String _baseUrl = "http://172.20.10.3:8000";
-  final String _baseUrl = "http://192.168.1.107:8000";
+  final String _baseUrl = "http://192.168.0.101:8000";
 
   // Set to false to use real API, true for mock testing
   final bool _useMockApi = false;
@@ -50,7 +50,20 @@ class ApiService {
       } else {
         debugPrint("API: Error (${response.statusCode}) - ${response.body}");
         try {
-          return json.decode(response.body);
+          final responseData = json.decode(response.body);
+          // Check for specific error messages
+          if (responseData['message']
+                  ?.toString()
+                  .toLowerCase()
+                  .contains('permission denied') ??
+              false) {
+            return {
+              'status': 'error',
+              'message':
+                  'Erreur serveur: Le serveur n\'a pas les permissions nécessaires. Veuillez contacter l\'administrateur.',
+            };
+          }
+          return responseData;
         } catch (e) {
           return {
             'status': 'error',
@@ -60,9 +73,24 @@ class ApiService {
       }
     } catch (e) {
       debugPrint("API: Exception - $e");
+      String errorMessage = 'Connection error: ';
+
+      if (e.toString().contains('Connection refused')) {
+        errorMessage =
+            'Impossible de se connecter au serveur. Veuillez vérifier que:\n'
+            '• Le serveur est en cours d\'exécution\n'
+            '• Vous êtes connecté au même réseau\n'
+            '• L\'adresse IP du serveur est correcte';
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage =
+            'Erreur de connexion réseau. Veuillez vérifier votre connexion internet.';
+      } else {
+        errorMessage += e.toString();
+      }
+
       return {
         'status': 'error',
-        'message': 'Connection error: $e',
+        'message': errorMessage,
       };
     }
   }
